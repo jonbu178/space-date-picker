@@ -3,360 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Black Hole Datepicker</title>
+    <title>Space Date Picker</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Styling for the landing pad */
+        .landing-pad {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            background-color: #555;
+            border: 5px solid yellow;
+            margin: 50px auto;
+            border-radius: 10px;
         }
-        body {
-            overflow: hidden;
-            font-family: monospace;
-        }
-        #canvas {
-            display: block;
-            background: #000814;
-            cursor: crosshair;
-        }
-        .ui-panel {
+        .hazard-stripe {
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to right, red 50%, transparent 50%);
             position: absolute;
-            color: white;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 8px;
+            top: 0;
+            animation: blink 1s infinite;
         }
-        #info-panel {
-            top: 20px;
-            left: 20px;
-            max-width: 320px;
-            font-size: 16px;
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
-        #tip-panel {
-            bottom: 20px;
-            right: 20px;
-            max-width: 280px;
-            font-size: 12px;
-            opacity: 0.9;
-        }
-        .title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .controls {
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        .dilation-box {
-            margin-bottom: 10px;
-            padding: 8px;
-            background: rgba(255, 100, 0, 0.2);
-            border-radius: 4px;
-        }
-        .landed-box {
-            padding: 10px;
-            background: rgba(76, 175, 80, 0.3);
-            border-radius: 4px;
-            border: 2px solid #4CAF50;
-        }
-        .landed-date {
-            font-size: 18px;
-        }
+        /* Add more styles for struts and lights */
     </style>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    
-    <div id="info-panel" class="ui-panel">
-        <div class="title">🚀 Black Hole Datepicker</div>
-        <div class="controls">
-            <strong>Controls:</strong><br>
-            • Left Mouse / A = Fire Left Jet<br>
-            • Right Mouse / D = Fire Right Jet<br>
-            • Both = Thrust Forward
-        </div>
-        <div class="dilation-box">
-            <strong>Time Dilation:</strong> +<span id="dilation">0</span> years
-        </div>
-        <div id="landed-box" style="display: none;" class="landed-box">
-            <strong>🌍 LANDED!</strong><br>
-            <span id="date" class="landed-date"></span>
-        </div>
+    <div class="landing-pad">
+        <div class="hazard-stripe"></div>
+        <!-- Additional detailed elements can be added here -->
     </div>
-
-    <div id="tip-panel" class="ui-panel">
-        💡 <strong>Mission:</strong> Fly near the black hole to accumulate time dilation, then land back on Earth to see what date it is!
-    </div>
-
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let stars = [];
-        for (let i = 0; i < 200; i++) {
-            stars.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                size: Math.random() * 2,
-                twinkle: Math.random() * Math.PI * 2
-            });
-        }
-
-        const blackHole = {
-            x: canvas.width / 2,
-            y: 100,
-            radius: 50,
-            mass: 800000
+        let spaceship = {
+            locked: true,
+            enginesFiring: false,
+            gravity: 0.00015,
+            burnerPower: 0.18,
+            rotation: 0,
+            snapToPad: function(angle) {
+                if (angle <= 30) {
+                    this.locked = false;
+                }
+            }
         };
 
-        const earth = {
-            x: canvas.width / 2,
-            y: canvas.height - 80,
-            radius: 100,
-            mass: 1000000
-        };
-
-        let ship = {
-            x: canvas.width / 2,
-            y: canvas.height - 200,
-            vx: 0,
-            vy: 0,
-            angle: 0,
-            size: 20,
-            leftJet: false,
-            rightJet: false,
-            jetPower: 0.3,
-            rotationSpeed: 0.08
-        };
-
-        let keys = {};
-        let mouseButtons = { left: false, right: false };
-        let totalTimeDilation = 0;
-        let hasLanded = false;
-
-        window.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
-        });
-
-        window.addEventListener('keyup', (e) => {
-            keys[e.key.toLowerCase()] = false;
-        });
-
-        canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 0) mouseButtons.left = true;
-            if (e.button === 2) mouseButtons.right = true;
-            e.preventDefault();
-        });
-
-        canvas.addEventListener('mouseup', (e) => {
-            if (e.button === 0) mouseButtons.left = false;
-            if (e.button === 2) mouseButtons.right = false;
-        });
-
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-
-        function drawStars() {
-            stars.forEach(star => {
-                star.twinkle += 0.02;
-                const alpha = (Math.sin(star.twinkle) + 1) / 2 * 0.5 + 0.5;
-                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
+        function updatePhysics() {
+            // Implement rotational momentum and other physics here
         }
 
-        function drawBlackHole() {
-            const gradient = ctx.createRadialGradient(
-                blackHole.x, blackHole.y, blackHole.radius * 0.3,
-                blackHole.x, blackHole.y, blackHole.radius * 2.5
-            );
-            gradient.addColorStop(0, 'rgba(255, 100, 0, 0.8)');
-            gradient.addColorStop(0.5, 'rgba(255, 50, 0, 0.3)');
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(blackHole.x, blackHole.y, blackHole.radius * 2.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(blackHole.x, blackHole.y, blackHole.radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = 'rgba(255, 150, 50, 0.6)';
-            ctx.lineWidth = 3;
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.ellipse(
-                    blackHole.x, blackHole.y,
-                    blackHole.radius * (1.5 + i * 0.3), blackHole.radius * (0.3 + i * 0.1),
-                    0, 0, Math.PI * 2
-                );
-                ctx.stroke();
+        function landSpaceship() {
+            if (spaceship.locked) {
+                console.log('Spaceship landed and locked in place.');
+            }
+            if (spaceship.enginesFiring) {
+                spaceship.locked = false;
+                console.log('Engines firing, spaceship is unlocked.');
             }
         }
 
-        function drawEarth() {
-            ctx.fillStyle = '#2196F3';
-            ctx.beginPath();
-            ctx.arc(earth.x, earth.y + earth.radius, earth.radius, Math.PI, 0);
-            ctx.fill();
-
-            ctx.fillStyle = '#4CAF50';
-            ctx.beginPath();
-            ctx.arc(earth.x - 30, earth.y + earth.radius - 20, 25, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(earth.x + 40, earth.y + earth.radius - 15, 20, 0, Math.PI * 2);
-            ctx.fill();
-
-            const atmGradient = ctx.createRadialGradient(
-                earth.x, earth.y + earth.radius,
-                earth.radius,
-                earth.x, earth.y + earth.radius,
-                earth.radius + 20
-            );
-            atmGradient.addColorStop(0, 'rgba(100, 150, 255, 0.3)');
-            atmGradient.addColorStop(1, 'rgba(100, 150, 255, 0)');
-            ctx.fillStyle = atmGradient;
-            ctx.beginPath();
-            ctx.arc(earth.x, earth.y + earth.radius, earth.radius + 20, Math.PI, 0);
-            ctx.fill();
-        }
-
-        function updateShipPhysics() {
-            ship.leftJet = keys['a'] || mouseButtons.left;
-            ship.rightJet = keys['d'] || mouseButtons.right;
-
-            if (ship.leftJet && !ship.rightJet) {
-                ship.angle += ship.rotationSpeed;
-            }
-            if (ship.rightJet && !ship.leftJet) {
-                ship.angle -= ship.rotationSpeed;
-            }
-
-            if (ship.leftJet && ship.rightJet) {
-                ship.vx += Math.sin(ship.angle) * ship.jetPower;
-                ship.vy -= Math.cos(ship.angle) * ship.jetPower;
-            }
-
-            const dxBH = blackHole.x - ship.x;
-            const dyBH = blackHole.y - ship.y;
-            const distBH = Math.sqrt(dxBH * dxBH + dyBH * dyBH);
-            const forceBH = blackHole.mass / (distBH * distBH);
-            ship.vx += (dxBH / distBH) * forceBH * 0.00008;
-            ship.vy += (dyBH / distBH) * forceBH * 0.00008;
-
-            const dxE = earth.x - ship.x;
-            const dyE = (earth.y + earth.radius) - ship.y;
-            const distE = Math.sqrt(dxE * dxE + dyE * dyE);
-            const forceE = earth.mass / (distE * distE);
-            ship.vx += (dxE / distE) * forceE * 0.00008;
-            ship.vy += (dyE / distE) * forceE * 0.00008;
-
-            ship.x += ship.vx;
-            ship.y += ship.vy;
-
-            ship.vx *= 0.995;
-            ship.vy *= 0.995;
-
-            const dilationStrength = Math.max(0, 1 - (distBH / 300));
-            totalTimeDilation += dilationStrength * 0.01;
-            document.getElementById('dilation').textContent = Math.floor(totalTimeDilation);
-
-            if (distE < earth.radius + 10 && !hasLanded) {
-                hasLanded = true;
-                const yearsForward = Math.floor(totalTimeDilation);
-                const newDate = new Date();
-                newDate.setFullYear(newDate.getFullYear() + yearsForward);
-                document.getElementById('landed-box').style.display = 'block';
-                document.getElementById('date').textContent = newDate.toLocaleDateString();
-                ship.vx = 0;
-                ship.vy = 0;
-            }
-
-            if (ship.x < 0) ship.x = canvas.width;
-            if (ship.x > canvas.width) ship.x = 0;
-            if (ship.y < 0) ship.y = canvas.height;
-            if (ship.y > canvas.height) ship.y = 0;
-        }
-
-        function drawShip() {
-            ctx.save();
-            ctx.translate(ship.x, ship.y);
-            ctx.rotate(ship.angle);
-
-            ctx.fillStyle = '#C0C0C0';
-            ctx.beginPath();
-            ctx.moveTo(0, -ship.size);
-            ctx.lineTo(-ship.size * 0.6, ship.size * 0.5);
-            ctx.lineTo(0, ship.size * 0.3);
-            ctx.lineTo(ship.size * 0.6, ship.size * 0.5);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = '#4FC3F7';
-            ctx.beginPath();
-            ctx.arc(0, -ship.size * 0.3, ship.size * 0.25, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = ship.leftJet ? '#FF6600' : '#666';
-            ctx.beginPath();
-            ctx.arc(-ship.size * 0.45, ship.size * 0.4, ship.size * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-
-            if (ship.leftJet) {
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.moveTo(-ship.size * 0.45, ship.size * 0.6);
-                ctx.lineTo(-ship.size * 0.55, ship.size * 0.9);
-                ctx.lineTo(-ship.size * 0.35, ship.size * 0.9);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            ctx.fillStyle = ship.rightJet ? '#FF6600' : '#666';
-            ctx.beginPath();
-            ctx.arc(ship.size * 0.45, ship.size * 0.4, ship.size * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-
-            if (ship.rightJet) {
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.moveTo(ship.size * 0.45, ship.size * 0.6);
-                ctx.lineTo(ship.size * 0.35, ship.size * 0.9);
-                ctx.lineTo(ship.size * 0.55, ship.size * 0.9);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            ctx.restore();
-        }
-
-        function animate() {
-            ctx.fillStyle = '#000814';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawStars();
-            drawEarth();
-            drawBlackHole();
-            updateShipPhysics();
-            drawShip();
-
-            requestAnimationFrame(animate);
-        }
-
-        animate();
+        // Call functions to update the game state
     </script>
 </body>
 </html>
